@@ -52,6 +52,7 @@ func main() {
 
 	http.HandleFunc("/GetCandidateListHandle", controller.GetCandidateListHandle)
 	http.HandleFunc("/CreateCandidateHandle", controller.CreateCandidateHandle)
+	http.HandleFunc("/CreateUser", controller.CreateUserHandle)
 	http.HandleFunc("/abc", controller.Abc)
 	fmt.Println("服务开启成功：地址为", "http://localhost:8080")
 	http.ListenAndServe(":8080", nil)

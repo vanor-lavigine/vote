@@ -41,7 +41,7 @@ require (
 		github.com/op/go-logging v0.0.0-20160315200505-970db520ece7 // indirect
 		github.com/pkg/errors v0.8.1 // indirect
 		github.com/qiniu/api.v7 v7.2.5+incompatible // indirect
-		github.com/qiniu/x v7.0.8+incompatible // indirect
+		github.com/qiniu/x v1.11.9 // indirect
 		github.com/ryanuber/columnize v2.1.0+incompatible // indirect
 		github.com/sergi/go-diff v1.1.0 // indirect
 		github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
@@ -52,6 +52,5 @@ require (
 		github.com/yudai/gojsondiff v1.0.0 // indirect
 		github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // indirect
 		github.com/yudai/pp v2.0.1+incompatible // indirect
-		qiniupkg.com/x v7.0.8+incompatible // indirect
 
 )
