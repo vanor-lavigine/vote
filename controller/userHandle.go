@@ -3,8 +3,11 @@ package controller
 import (
 	"crypto/elliptic"
 	crand "crypto/rand"
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/ioutil"
+	"log"
 	"math/big"
 	"net/http"
 	"voteList/dao"
@@ -185,9 +188,131 @@ func Votecheck(w http.ResponseWriter, r *http.Request) {
 
 }
 func Abc(w http.ResponseWriter, r *http.Request) {
-	print(r.Body)
+	//fmt.Printf(r.Body)
 	fmt.Printf("abc", r.Method)
 	//username := r.FormValue("username")
 	//fmt.Printf(username)1
 
+}
+
+//创建候选者
+type Response struct {
+	Code      int    `json:"code"`
+	Data      *Data  `json:"data"`
+	ErrorCode string `json:"errorCode"`
+}
+
+type Data struct {
+	Username string `json:"username"`
+	ID       string `json:"id"`
+	Pbk      string `json:"pbk""`
+	Prk      string `json:"prk""`
+}
+
+func CreateCandidateHandle(w http.ResponseWriter, r *http.Request) {
+	resp := &Response{}
+	if r.Method == "POST" {
+		username := r.FormValue("username")
+		id := r.FormValue("id")
+		pubk := r.FormValue("pubk")
+		prk := r.FormValue("prk")
+		loggedIn, isAdmin := checkLoginAndAdminStatus(username) // Implement this function according to your login and admin status checking logic
+		if !loggedIn {
+			resp.Code = 401
+			resp.ErrorCode = "User not logged in"
+		} else if !isAdmin {
+			resp.Code = 403
+			resp.ErrorCode = "User not an admin"
+		} else {
+			exists, _ := dao.CheckCandidateExists(username) // Implement this function to check if the candidate exists
+			if exists {
+				resp.Code = 400
+				resp.ErrorCode = "canxxxxExist"
+			} else {
+				//pubKey, privKey := generateKeys()    */                 // Implement this function to generate public and private keys
+				err := dao.CreateCandidate(username, id, pubk, prk) // Implement this function to create a candidate in your database
+				if err != nil {
+					resp.Code = 500
+					resp.ErrorCode = "Backend error"
+				} else {
+					resp.Code = 200
+					resp.Data = &Data{
+						Username: username,
+						Prk:      prk, // You may want to return something else as the ID
+					}
+				}
+			}
+		}
+	} else {
+		resp.Code = 405
+		resp.ErrorCode = "Invalid method"
+	}
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bodyString := string(bodyBytes)
+
+	fmt.Printf("%s\n", bodyString)
+	fmt.Printf("abc")
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+//候选人列表
+type CandidateListResponse struct {
+	Code      int       `json:"code"`
+	Data      *CandData `json:"data"`
+	ErrorCode string    `json:"errorCode"`
+}
+
+type CandData struct {
+	List []CandidateInfo `json:"list"`
+}
+
+type CandidateInfo struct {
+	Username string `json:"username"`
+	ID       string `json:"id"`
+}
+
+func GetCandidateListHandle(w http.ResponseWriter, r *http.Request) {
+	resp := &CandidateListResponse{}
+
+	/*if r.Method == "GET" {
+		loggedIn, isAdmin := checkLoginAndAdminStatus(r) // Implement this function according to your login and admin status checking logic
+		if !loggedIn {
+			resp.Code = 401
+			resp.ErrorCode = "User not logged in"
+		} else if !isAdmin {
+			resp.Code = 403
+			resp.ErrorCode = "User not an admin"
+		} else {
+			candidates, err := dao.GetCandidateList() // Implement this function to get a list of candidates from your database
+			if err != nil {
+				resp.Code = 500
+				resp.ErrorCode = "Backend error"
+			} else {
+				resp.Code = 200
+				resp.Data = &CandData{
+					List: candidates,
+				}
+			}
+		}
+	} else {
+		resp.Code = 405
+		resp.ErrorCode = "Invalid method"
+	}*/
+
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bodyString := string(bodyBytes)
+
+	fmt.Printf("%s\n", bodyString)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+	fmt.Printf("abc")
 }

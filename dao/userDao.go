@@ -57,6 +57,26 @@ func QueryAllUsers() []*model.User {
 	return users
 }
 
+func checkLoginAndAdminStatus() {
+
+}
+func GetCandidateList() {
+
+}
+
+func CreateCandidate(username string, id string, pubk string, prk string) error {
+	if util.InitDb() != true {
+		fmt.Println("db false!")
+	}
+	sqlStr := "insert into candidate(username, id, pubk, prk) values(?,?,?,?)"
+	_, err := util.Db.Exec(sqlStr, username, id, pubk, prk)
+	fmt.Println(err)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 //func main() {
 //	users := QueryAllUsers()
 //	for i := 0; i < len(users); i++ {

@@ -50,6 +50,8 @@ func main() {
 	http.HandleFunc("/vote", controller.VoteHandle)
 	http.HandleFunc("/check", controller.Votecheck)
 
+	http.HandleFunc("/GetCandidateListHandle", controller.GetCandidateListHandle)
+	http.HandleFunc("/CreateCandidateHandle", controller.CreateCandidateHandle)
 	http.HandleFunc("/abc", controller.Abc)
 	fmt.Println("服务开启成功：地址为", "http://localhost:8080")
 	http.ListenAndServe(":8080", nil)
