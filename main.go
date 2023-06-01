@@ -14,6 +14,12 @@ import (
 	"voteList/service"
 )
 
+const (
+	configFile  = "conf.yaml"
+	initialized = false
+	EduCC       = "mycc"
+)
+
 type ApiResponse struct {
 	Code      int         `json:"code"`
 	Data      interface{} `json:"data"`
@@ -25,7 +31,7 @@ var db *sql.DB
 var store = sessions.NewCookieStore([]byte("something-very-secret"))
 
 func main() {
-
+	var err error
 	initInfo := &sdkInit.InitInfo{
 
 		ChannelID:      "hustgym",
@@ -34,7 +40,7 @@ func main() {
 		OrgName:        "HUST",
 		OrdererOrgName: "orderer.test.com",
 
-		ChaincodeID:     "mycc",
+		ChaincodeID:     EduCC,
 		ChaincodeGoPath: "/home/u/go/",
 		ChaincodePath:   "voteList/chaincode/",
 		UserName:        "User1",
@@ -43,38 +49,47 @@ func main() {
 	sdk, err := sdkInit.SetupSDK(configFile, initialized)
 	if err != nil {
 		fmt.Printf(err.Error())
+		return
 	}
 
 	defer sdk.Close()
+
 	err = sdkInit.CreateChannel(sdk, initInfo)
 	if err != nil {
 		fmt.Println(err.Error())
+		return
 	}
-	//安装实例化链码
 
-	sdkInit.InstallAndInstantiateCC(sdk, initInfo)
+	channelClient, err := sdkInit.InstallAndInstantiateCC(sdk, initInfo)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	fmt.Println(channelClient)
+
+	//===========================================//
 
 	serviceSetup := service.ServiceSetup{
-		ChaincodeID: SimpleCC,
+		ChaincodeID: EduCC,
 		Client:      channelClient,
 	}
 
-	msg, err := serviceSetup.SetInfo("Hanxiaodong", "Kongyixueyuan")
+	msg, err := serviceSetup.SetInfo("van", "123")
 	if err != nil {
 		fmt.Println(err)
 	} else {
 		fmt.Println(msg)
 	}
 
-	msg, err = serviceSetup.GetInfo("Hanxiaodong")
+	msg, err = serviceSetup.GetInfo("van")
 	if err != nil {
 		fmt.Println(err)
 	} else {
-		fmt.Println(msg)
+		fmt.Println("van value:", msg)
 	}
 
 	// Setup MySQL connection
-	var err error
+
 	db, err = sql.Open("mysql", "debian-sys-maint:XMQWnyGB6Or12Oxk@tcp(localhost:3306)/vote")
 	if err != nil {
 		panic(err)
