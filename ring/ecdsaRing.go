@@ -13,6 +13,7 @@ type PublicKeyRing struct {
 	Ring []ecdsa.PublicKey
 }
 
+//
 func (r *PublicKeyRing) LenList() int {
 	return len(r.Ring)
 }
