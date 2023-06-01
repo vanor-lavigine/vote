@@ -27,11 +27,12 @@ const routesName: any = {
 const App: React.FC = observer(() => {
   useEffect(() => {
     //模拟已经登录
-    UserStore.checkLogin(true, "testuser");
+   //UserStore.checkLogin(true, "testuser");
 
     // 模拟管理员登录
-    UserStore.checkLogin(true, "admin");
+    //UserStore.checkLogin(true, "admin");
   });
+  console.log(UserStore.username, UserStore.isLoggedIn);
   const handleLogout = async () => {
     try {
       await logout();

@@ -1,9 +1,11 @@
 import { Form, Input, Button } from "@arco-design/web-react";
 import { login } from "../services/api";
+import {useHistory} from "react-router-dom";
 const FormItem = Form.Item;
 
 function Login() {
   const [form] = Form.useForm();
+  const history = useHistory();
   return (
     <Form
       form={form}
@@ -13,9 +15,17 @@ function Login() {
       onValuesChange={(v, vs) => {
         // console.log(v, vs);
       }}
-      onSubmit={(v) => {
+      onSubmit={async (v) => {
         console.log(v);
-        login(v.username, v.password);
+        try {
+         await login(v.username, v.password);
+         history.push('/');
+        } catch (e) {
+          console.log('login error')
+        }
+
+
+
       }}
     >
       <FormItem label="用户名" field="username" rules={[{ required: true }]}>

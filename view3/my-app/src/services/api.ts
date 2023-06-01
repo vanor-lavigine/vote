@@ -29,9 +29,10 @@ axios.interceptors.response.use(
 );
 
 export async function login(username: string, password: string): Promise<void> {
-  const response = await axios.post("/login", { username, password });
-  if (response?.data?.code === 200) {
+  const data:any = await axios.post("/login", { username, password });
+  if (data?.code === 200) {
     UserStore.login(username);
+    //window.location.pathname = '/';
   }
 }
 
@@ -39,31 +40,34 @@ export async function register(
   username: string,
   password: string
 ): Promise<void> {
-  const response = await axios.post("/register", { username, password });
-  if (response?.data?.code === 200) {
+  const data:any = await axios.post("/register", { username, password });
+  if (data?.code === 200) {
     await login(username, password);
   }
 }
 
 export async function listCandidates(): Promise<ApiResponse> {
-  const response = await axios.post("/listCandidates");
-  return response?.data?.Data;
+  const data:any = await axios.post("/listCandidates");
+  //console.log(data)
+  return data?.data;
 
 }
 
 export async function deleteCandidate(id: number): Promise<ApiResponse> {
-  const response = await axios.post("/deleteCandidate", { id });
-  return response?.data?.Data;
+  const data:any = await axios.post("/deleteCandidate", { id });
+  console.log(data)
+  return data?.data;
 }
 
 export async function createCandidate(username: string): Promise<ApiResponse> {
-  const response = await axios.post("/createCandidate", { username });
-  return response?.data?.Data;
+  const data:any = await axios.post("/createCandidate", { username });
+  return data?.data;
 }
 
 export async function getVoteList(): Promise<ApiResponse> {
-  const response = await axios.post("/getVoteList");
-  return response?.data?.Data;
+  const data:any = await axios.post("/getVoteList");
+  //console.log(data)
+  return data?.data;
 }
 
 export async function logout(): Promise<void> {
@@ -76,9 +80,9 @@ export async function logout(): Promise<void> {
 }
 
 export async function checkLogin(): Promise<void> {
-  const response = await axios.post("/checkLogin");
-  if (response?.data?.code === 200) {
-    const { HasLogin, UserName } = response?.data?.Data || {};
+  const data:any = await axios.post("/checkLogin");
+  if (data?.code === 200) {
+    const { HasLogin, UserName } = data?.data || {};
     UserStore.checkLogin(HasLogin, UserName);
   }
 }

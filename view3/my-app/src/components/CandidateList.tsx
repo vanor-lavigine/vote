@@ -19,17 +19,17 @@ const CandidateList: React.FC = observer(() => {
   const [showModal, setShowModal] = useState(false);
   const [form] = Form.useForm();
 
+  const fetchCandidates = async () => {
+    const candidates :any = await listCandidates();
+    //const list = candidates?.data || [];
+   // console.log("候选人列表", list);
+    setCandidates(candidates);
+    //console.log(candidates);
+  };
+
   useEffect(() => {
     fetchCandidates();
   }, []);
-
-  const fetchCandidates = async () => {
-    const candidates = await listCandidates();
-    const list = candidates?.data || [];
-    console.log("候选人列表", list);
-    setCandidates(list);
-  };
-
   const handleDelete = async (id: number) => {
     await deleteCandidate(id);
     fetchCandidates();
@@ -56,18 +56,18 @@ const CandidateList: React.FC = observer(() => {
   const columns = [
     {
       title: "ID",
-      dataIndex: "Id",
+      dataIndex: "id",
       key: "Id",
     },
     {
       title: "用户名",
-      dataIndex: "Username",
+      dataIndex: "username",
       key: "Username",
     },
     {
       title: "操作",
       key: "action",
-      render: (record: Candidate) => (
+      render: (_:any, record:Candidate) => (
         <>
           {UserStore.username === "admin" && (
             <Button onClick={() => handleDelete(record.id)} status="danger">
