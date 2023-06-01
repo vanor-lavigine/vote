@@ -10,6 +10,8 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"net/http"
+	"voteList/sdkInit"
+	"voteList/service"
 )
 
 type ApiResponse struct {
@@ -23,6 +25,54 @@ var db *sql.DB
 var store = sessions.NewCookieStore([]byte("something-very-secret"))
 
 func main() {
+
+	initInfo := &sdkInit.InitInfo{
+
+		ChannelID:      "hustgym",
+		ChannelConfig:  "/home/u/go/src/fixturesPIC/channel-artifacts/HUSTgym.tx",
+		OrgAdmin:       "Admin",
+		OrgName:        "HUST",
+		OrdererOrgName: "orderer.test.com",
+
+		ChaincodeID:     "mycc",
+		ChaincodeGoPath: "/home/u/go/",
+		ChaincodePath:   "voteList/chaincode/",
+		UserName:        "User1",
+	}
+
+	sdk, err := sdkInit.SetupSDK(configFile, initialized)
+	if err != nil {
+		fmt.Printf(err.Error())
+	}
+
+	defer sdk.Close()
+	err = sdkInit.CreateChannel(sdk, initInfo)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	//安装实例化链码
+
+	sdkInit.InstallAndInstantiateCC(sdk, initInfo)
+
+	serviceSetup := service.ServiceSetup{
+		ChaincodeID: SimpleCC,
+		Client:      channelClient,
+	}
+
+	msg, err := serviceSetup.SetInfo("Hanxiaodong", "Kongyixueyuan")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(msg)
+	}
+
+	msg, err = serviceSetup.GetInfo("Hanxiaodong")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(msg)
+	}
+
 	// Setup MySQL connection
 	var err error
 	db, err = sql.Open("mysql", "debian-sys-maint:XMQWnyGB6Or12Oxk@tcp(localhost:3306)/vote")
