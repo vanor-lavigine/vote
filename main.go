@@ -2,9 +2,14 @@ package main
 
 import (
 	"crypto/md5"
+	"crypto/rand"
+	"crypto/rsa"
+	_ "crypto/sha256"
+	"crypto/x509"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
@@ -47,8 +52,23 @@ func main() {
 	http.ListenAndServe(":8080", nil)
 }
 
+func allowCORS(w http.ResponseWriter) {
+	// Set CORS headers
+	// "Access-Control-Allow-Origin": "*"
+	// Or you could be more specific:
+	// "Access-Control-Allow-Origin": "http://localhost:3000"
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Allow methods
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+
+	// Allow headers
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+}
+
 func errorHandler(fn http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		allowCORS(w)
 		defer func() {
 			if err, ok := recover().(error); ok {
 				json.NewEncoder(w).Encode(ApiResponse{
@@ -92,8 +112,21 @@ func adminOnly(fn http.HandlerFunc) http.HandlerFunc {
 }
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
-	username := r.FormValue("username")
-	password := r.FormValue("password")
+	// Create a new struct to hold the request body
+	type RegisterRequest struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	var request RegisterRequest
+
+	// Decode the request body into the struct
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		panic(err)
+	}
+
+	username := request.Username
+	password := request.Password
 
 	// Hash the password
 	hasher := md5.New()
@@ -101,19 +134,18 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	hashedPassword := hex.EncodeToString(hasher.Sum(nil))
 
 	var exists bool
-	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM user_new WHERE username=?)", username).Scan(&exists)
+	err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM user_new WHERE username=?)", username).Scan(&exists)
 	if err != nil {
 		panic(err)
 	}
-	/*if exists {
+	if exists {
 		json.NewEncoder(w).Encode(ApiResponse{
 			Code:      400,
 			ErrorCode: "user_exists",
 			ErrorMsg:  "Username is already taken.",
 		})
 		return
-	}*/
-
+	}
 	hash := md5.New()
 	hash.Write([]byte(username))
 	hashValue := hex.EncodeToString(hash.Sum(nil))
@@ -130,8 +162,20 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
-	username := r.FormValue("username")
-	password := r.FormValue("password")
+	type RegisterRequest struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	var request RegisterRequest
+
+	// Decode the request body into the struct
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		panic(err)
+	}
+
+	username := request.Username
+	password := request.Password
 
 	// Hash the password
 	hasher := md5.New()
@@ -139,7 +183,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	hashedPassword := hex.EncodeToString(hasher.Sum(nil))
 
 	var exists bool
-	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM user_new WHERE username=? AND password=?)", username, hashedPassword).Scan(&exists)
+	err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM user_new WHERE username=? AND password=?)", username, hashedPassword).Scan(&exists)
 	if err != nil {
 		panic(err)
 	}
@@ -189,8 +233,25 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 func createCandidateHandler(w http.ResponseWriter, r *http.Request) {
 	//TODO: zengjia privatekey he publicKey
-	username := r.FormValue("username")
-	_, err := db.Exec("INSERT INTO candidates (username, valid) VALUES (?, true)", username)
+	type RegisterRequest struct {
+		Username string `json:"username"`
+	}
+	var request RegisterRequest
+
+	// Decode the request body into the struct
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		panic(err)
+	}
+
+	username := request.Username
+
+	privateKey, publicKey := GenRsaKey()
+
+	//fmt.Println(string(privateKey))
+	//fmt.Println(string(publicKey))
+
+	_, err = db.Exec("INSERT INTO candidates (username, valid, publicKey, privateKey) VALUES (?, true, ?, ?)", username, publicKey, privateKey)
 	if err != nil {
 		panic(err)
 	}
@@ -202,8 +263,20 @@ func createCandidateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteCandidateHandler(w http.ResponseWriter, r *http.Request) {
-	username := r.FormValue("username")
-	_, err := db.Exec("UPDATE candidates SET valid = false WHERE username = ?", username)
+	type RegisterRequest struct {
+		Username string `json:"username"`
+	}
+	var request RegisterRequest
+
+	// Decode the request body into the struct
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		panic(err)
+	}
+
+	username := request.Username
+
+	_, err = db.Exec("UPDATE candidates SET valid = false WHERE username = ?", username)
 	if err != nil {
 		panic(err)
 	}
@@ -253,4 +326,71 @@ func checkLogin(r *http.Request) (string, error) {
 	}
 
 	return username, nil
+}
+
+func GenRsaKey() (prvkey, pubkey []byte) {
+	// 生成私钥文件
+	privateKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		panic(err)
+	}
+	derStream := x509.MarshalPKCS1PrivateKey(privateKey)
+	block := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: derStream,
+	}
+	prvkey = pem.EncodeToMemory(block)
+	publicKey := &privateKey.PublicKey
+	derPkix, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		panic(err)
+	}
+	block = &pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: derPkix,
+	}
+	pubkey = pem.EncodeToMemory(block)
+	return
+}
+
+// gongyao jiami
+func RsaEncrypt(data, keyBytes []byte) []byte {
+	//解密pem格式的公钥
+	block, _ := pem.Decode(keyBytes)
+	if block == nil {
+		panic(errors.New("public key error"))
+	}
+	// 解析公钥
+	pubInterface, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		panic(err)
+	}
+	// 类型断言
+	pub := pubInterface.(*rsa.PublicKey)
+	//加密
+	ciphertext, err := rsa.EncryptPKCS1v15(rand.Reader, pub, data)
+	if err != nil {
+		panic(err)
+	}
+	return ciphertext
+}
+
+// 私钥解密
+func RsaDecrypt(ciphertext, keyBytes []byte) []byte {
+	//获取私钥
+	block, _ := pem.Decode(keyBytes)
+	if block == nil {
+		panic(errors.New("private key error!"))
+	}
+	//解析PKCS1格式的私钥
+	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		panic(err)
+	}
+	// 解密
+	data, err := rsa.DecryptPKCS1v15(rand.Reader, priv, ciphertext)
+	if err != nil {
+		panic(err)
+	}
+	return data
 }
