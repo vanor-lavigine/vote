@@ -15,8 +15,6 @@ import (
 	"github.com/gorilla/sessions"
 	_ "github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
 	"net/http"
-	"voteList/sdkInit"
-	"voteList/service"
 )
 
 const (
@@ -37,7 +35,7 @@ var store = sessions.NewCookieStore([]byte("something-very-secret"))
 
 func main() {
 	var err error
-	initInfo := &sdkInit.InitInfo{
+	/*initInfo := &sdkInit.InitInfo{
 
 		ChannelID:      "hustgym",
 		ChannelConfig:  "/home/u/go/src/fixturesPIC/channel-artifacts/HUSTgym.tx",
@@ -85,7 +83,12 @@ func main() {
 	} else {
 		fmt.Println(msg)
 	}
-
+	msg, err = serviceSetup.SetInfo("van", "345")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(msg)
+	}
 	msg, err = serviceSetup.GetInfo("van")
 	if err != nil {
 		fmt.Println(err)
@@ -94,7 +97,7 @@ func main() {
 	}
 
 	// Setup MySQL connection
-
+	*/
 	db, err = sql.Open("mysql", "debian-sys-maint:XMQWnyGB6Or12Oxk@tcp(localhost:3306)/vote")
 	if err != nil {
 		panic(err)
@@ -106,6 +109,10 @@ func main() {
 		MaxAge:   14 * 24 * 60 * 60, // 14 days
 		HttpOnly: true,
 	}
+
+	fs := http.FileServer(http.Dir("view3/my-app/build"))
+	//http.Handle("/static/", http.StripPrefix("view3/my-app/build/static/", fs))
+	http.Handle("/", fs)
 
 	http.HandleFunc("/register", errorHandler(registerHandler))
 	http.HandleFunc("/login", errorHandler(loginHandler))
@@ -267,15 +274,21 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	session, _ := store.Get(r, "session-name")
 	session.Values["username"] = username
-	session.Save(r, w)
+	err = session.Save(r, w)
+	if err != nil {
+		panic(err)
+	}
 
-	http.SetCookie(w, &http.Cookie{
+	///sessionID := base64.URLEncoding.EncodeToString(session.ID)
+	cookie := http.Cookie{
 		Name:     "session-name",
 		Value:    session.ID,
 		Path:     "/",
 		MaxAge:   14 * 24 * 60 * 60,
 		HttpOnly: true,
-	})
+	}
+	http.SetCookie(w, &cookie)
+	fmt.Println("session", session.ID)
 
 	json.NewEncoder(w).Encode(ApiResponse{
 		Code: 200,
