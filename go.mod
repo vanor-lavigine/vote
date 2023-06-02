@@ -16,6 +16,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/schema v1.1.0 // indirect
 	github.com/gorilla/sessions v1.2.1
 	github.com/hashicorp/go-version v1.2.0 // indirect

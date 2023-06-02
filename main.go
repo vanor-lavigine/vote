@@ -12,9 +12,10 @@ import (
 	"errors"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/gorilla/sessions"
+	"github.com/google/uuid"
 	_ "github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
 	"net/http"
+	"time"
 )
 
 const (
@@ -31,10 +32,18 @@ type ApiResponse struct {
 }
 
 var db *sql.DB
-var store = sessions.NewCookieStore([]byte("something-very-secret"))
+
+type Session struct {
+	ID        string
+	Username  string
+	ExpiresAt time.Time
+}
+
+var sessions map[string]Session
 
 func main() {
 	var err error
+
 	/*initInfo := &sdkInit.InitInfo{
 
 		ChannelID:      "hustgym",
@@ -98,17 +107,13 @@ func main() {
 
 	// Setup MySQL connection
 	*/
+
+	sessions = make(map[string]Session)
 	db, err = sql.Open("mysql", "debian-sys-maint:XMQWnyGB6Or12Oxk@tcp(localhost:3306)/vote")
 	if err != nil {
 		panic(err)
 	}
 	defer db.Close()
-
-	store.Options = &sessions.Options{
-		Path:     "/",
-		MaxAge:   14 * 24 * 60 * 60, // 14 days
-		HttpOnly: true,
-	}
 
 	fs := http.FileServer(http.Dir("view3/my-app/build"))
 	//http.Handle("/static/", http.StripPrefix("view3/my-app/build/static/", fs))
@@ -236,6 +241,11 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func generateSessionID() string {
+	_uuid := uuid.New()
+	return _uuid.String()
+}
+
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	allowCORS(w)
 	type RegisterRequest struct {
@@ -272,22 +282,24 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, _ := store.Get(r, "session-name")
-	session.Values["username"] = username
-	err = session.Save(r, w)
-	if err != nil {
-		panic(err)
+	sessionID := generateSessionID()
+	expiration := time.Now().Add(14 * 24 * time.Hour)
+	session := Session{
+		ID:        sessionID,
+		Username:  username,
+		ExpiresAt: expiration,
 	}
+	sessions[sessionID] = session
 
-	///sessionID := base64.URLEncoding.EncodeToString(session.ID)
 	cookie := http.Cookie{
-		Name:     "session-name",
-		Value:    session.ID,
+		Name:     "session-id",
+		Value:    sessionID,
 		Path:     "/",
-		MaxAge:   14 * 24 * 60 * 60,
+		Expires:  expiration,
 		HttpOnly: true,
 	}
 	http.SetCookie(w, &cookie)
+
 	fmt.Println("session", session.ID)
 
 	json.NewEncoder(w).Encode(ApiResponse{
@@ -298,16 +310,27 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	allowCORS(w)
-	session, _ := store.Get(r, "session-name")
-	session.Options.MaxAge = -1
-	session.Save(r, w)
+	cookie, err := r.Cookie("session-id")
+	if err != nil {
+		json.NewEncoder(w).Encode(ApiResponse{
+			Code:      401,
+			ErrorCode: "not_logged_in",
+			ErrorMsg:  "You are not logged in.",
+		})
+		return
+	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:   "session-name",
-		Path:   "/",
-		MaxAge: -1,
-	})
+	sessionID := cookie.Value
+	delete(sessions, sessionID)
 
+	// Clear cookie on the client side
+	cookie = &http.Cookie{
+		Name:    "session-id",
+		Value:   "",
+		Path:    "/",
+		Expires: time.Unix(0, 0),
+	}
+	http.SetCookie(w, cookie)
 	json.NewEncoder(w).Encode(ApiResponse{
 		Code: 200,
 		Data: "Logout successful.",
@@ -334,6 +357,8 @@ func createCandidateHandler(w http.ResponseWriter, r *http.Request) {
 
 	//fmt.Println(string(privateKey))
 	//fmt.Println(string(publicKey))
+
+	fmt.Println("createCandidateHandler after login")
 
 	_, err = db.Exec("INSERT INTO candidates (username, valid, publicKey, privateKey) VALUES (?, true, ?, ?)", username, publicKey, privateKey)
 	if err != nil {
@@ -401,17 +426,30 @@ func listCandidatesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func checkLogin(r *http.Request) (string, error) {
-	session, err := store.Get(r, "session-name")
+	//session, err := store.Get(r, "session-name")
+	//if err != nil {
+	//	return "", err
+	//}
+	//
+	//username, ok := session.Values["username"].(string)
+	//if !ok {
+	//	return "", errors.New("not logged in")
+	//}
+	//
+	//return username, nil
+
+	cookie, err := r.Cookie("session-id")
 	if err != nil {
 		return "", err
 	}
 
-	username, ok := session.Values["username"].(string)
-	if !ok {
-		return "", errors.New("not logged in")
+	sessionID := cookie.Value
+	for _, session := range sessions {
+		if session.ID == sessionID {
+			return session.Username, nil
+		}
 	}
-
-	return username, nil
+	return "", nil
 }
 
 func GenRsaKey() (prvkey, pubkey []byte) {
