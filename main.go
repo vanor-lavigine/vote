@@ -115,12 +115,6 @@ func main() {
 	}
 	defer db.Close()
 
-	store.Options = &sessions.Options{
-		Path:     "/",
-		MaxAge:   14 * 24 * 60 * 60, // 14 days
-		HttpOnly: true,
-	}
-
 	fs := http.FileServer(http.Dir("view3/my-app/build"))
 	//http.Handle("/static/", http.StripPrefix("view3/my-app/build/static/", fs))
 	http.Handle("/", fs)
