@@ -128,9 +128,9 @@ func main() {
 	http.HandleFunc("/createCandidate", withAuth(adminOnly(errorHandler(createCandidateHandler))))
 	http.HandleFunc("/deleteCandidate", withAuth(adminOnly(errorHandler(deleteCandidateHandler))))
 	http.HandleFunc("/listCandidates", errorHandler(listCandidatesHandler))
-	http.HandleFunc("listCandidatesVoteStatus", errorHandler(withAuth(listCandidatesVoteStatusHandle)))
-	http.HandleFunc("vote", errorHandler(withAuth(VoteHandle)))
-	http.HandleFunc("getVoteResult", errorHandler(withAuth(getVoteResultHandle)))
+	http.HandleFunc("/listCandidatesVoteStatus", errorHandler(withAuth(listCandidatesVoteStatusHandle)))
+	http.HandleFunc("/vote", errorHandler(withAuth(VoteHandle)))
+	http.HandleFunc("/getVoteResult", errorHandler(withAuth(getVoteResultHandle)))
 	fmt.Println("服务开启成功：地址为", "http://localhost:8080")
 	http.ListenAndServe(":8080", nil)
 }
@@ -545,32 +545,37 @@ func listCandidatesVoteStatusHandle(w http.ResponseWriter, r *http.Request) {
 	voted := checkVoted(currentUser)
 
 	type Candidate struct {
-		id       int
-		username string
-		voted    bool
+		Id       int
+		Username string
+		Voted    bool
 	}
 
 	var candidates []Candidate
 
 	for rows.Next() {
 		var candidate Candidate
-		err := rows.Scan(&candidate.id, &candidate.username)
+		err := rows.Scan(&candidate.Id, &candidate.Username)
 		if err != nil {
 			panic(err)
 		}
 
-		fmt.Println("candidate", candidate.id, candidate.username)
+		fmt.Println("candidate", candidate.Id, candidate.Username)
 
-		candidate.voted = voted
+		//	candidate.voted = voted
 
-		candidates = append(candidates, candidate)
+		candidates = append(candidates, Candidate{
+			Id:       candidate.Id,
+			Username: candidate.Username,
+			Voted:    voted,
+		})
 	}
 
 	json.NewEncoder(w).Encode(ApiResponse{
 		Code: 200,
 		Data: candidates,
 	})
-}func getVoteResultHandle(w http.ResponseWriter, r *http.Request) {
+}
+func getVoteResultHandle(w http.ResponseWriter, r *http.Request) {
 	allowCORS(w)
 
 	fmt.Println("getVoteResultHandle")
@@ -581,7 +586,6 @@ func listCandidatesVoteStatusHandle(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	defer rows.Close()
-
 
 	type CandidateResult struct {
 		id       int
@@ -603,11 +607,11 @@ func listCandidatesVoteStatusHandle(w http.ResponseWriter, r *http.Request) {
 
 		var value string = ""
 		value, err = serviceSetup.GetInfo(publicKey)
-		if err != nil {
-			panic(err)
-		}
+		//if err != nil {
+		//	panic(err)
+		//}
 
-		count  := len(strings.Split(value, ","))
+		count := len(strings.Split(value, ","))
 		candidate.count = count
 
 		candidates = append(candidates, candidate)
@@ -622,7 +626,7 @@ func listCandidatesVoteStatusHandle(w http.ResponseWriter, r *http.Request) {
 func checkVoted(username string) bool {
 	// 查询用户的 hash 值
 	var hashValue string
-	err := db.QueryRow("SELECT hash FROM users WHERE username = ?", username).Scan(&hashValue)
+	err := db.QueryRow("SELECT hash FROM user_new WHERE username = ?", username).Scan(&hashValue)
 	if err != nil {
 		panic(err)
 	}
@@ -652,11 +656,11 @@ func checkVoted(username string) bool {
 
 		fmt.Println("candidate:", candidate.username, candidate.publicKey)
 		// 使用候选人的 publicKey 查询 getInfo 的值，并判断是否包含 hash 值
-		var value string
+		var value string = ""
 		value, err = serviceSetup.GetInfo(candidate.publicKey)
-		if err != nil {
-			panic(err)
-		}
+		//if err != nil {
+		//	panic(err)
+		//}
 
 		fmt.Println("candiate chain values ", value)
 
@@ -700,7 +704,7 @@ func VoteHandle(w http.ResponseWriter, r *http.Request) {
 
 	// 查询用户的 hash 值
 	var hashValue string
-	err = db.QueryRow("SELECT hash FROM users WHERE username = ?", currentUser).Scan(&hashValue)
+	err = db.QueryRow("SELECT hash FROM user_new WHERE username = ?", currentUser).Scan(&hashValue)
 	if err != nil {
 		panic(err)
 	}
@@ -723,9 +727,9 @@ func VoteHandle(w http.ResponseWriter, r *http.Request) {
 
 	value, err := serviceSetup.GetInfo(publicKey)
 
-	if err != nil {
-		panic(err)
-	}
+	//if err != nil {
+	//	panic(err)
+	//}
 	if value != "" {
 		value += "," + hashValue
 	} else {
