@@ -53,9 +53,22 @@ export async function listCandidates(): Promise<ApiResponse> {
 
 }
 
+export async function listCandidatesVoteStatus(): Promise<ApiResponse> {
+  const data:any = await axios.post("/listCandidatesVoteStatus");
+  //console.log(data)
+  return data?.data;
+
+}
+
 export async function deleteCandidate(id: number): Promise<ApiResponse> {
   const data:any = await axios.post("/deleteCandidate", { id });
   console.log(data)
+  return data?.data;
+}
+
+export async function vote(username: string): Promise<ApiResponse> {
+  const data:any = await axios.post("/vote", { username });
+  console.log("vote", data)
   return data?.data;
 }
 
@@ -64,8 +77,8 @@ export async function createCandidate(username: string): Promise<ApiResponse> {
   return data?.data;
 }
 
-export async function getVoteList(): Promise<ApiResponse> {
-  const data:any = await axios.post("/getVoteList");
+export async function getVoteResult(): Promise<ApiResponse> {
+  const data:any = await axios.post("/getVoteResult");
   //console.log(data)
   return data?.data;
 }

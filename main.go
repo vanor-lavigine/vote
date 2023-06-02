@@ -15,7 +15,10 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
 	"net/http"
+	"strings"
 	"time"
+	"voteList/sdkInit"
+	"voteList/service"
 )
 
 const (
@@ -40,11 +43,12 @@ type Session struct {
 }
 
 var sessions map[string]Session
+var serviceSetup service.ServiceSetup
 
 func main() {
 	var err error
 
-	/*initInfo := &sdkInit.InitInfo{
+	initInfo := &sdkInit.InitInfo{
 
 		ChannelID:      "hustgym",
 		ChannelConfig:  "/home/u/go/src/fixturesPIC/channel-artifacts/HUSTgym.tx",
@@ -81,7 +85,7 @@ func main() {
 
 	//===========================================//
 
-	serviceSetup := service.ServiceSetup{
+	serviceSetup = service.ServiceSetup{
 		ChaincodeID: EduCC,
 		Client:      channelClient,
 	}
@@ -106,7 +110,6 @@ func main() {
 	}
 
 	// Setup MySQL connection
-	*/
 
 	sessions = make(map[string]Session)
 	db, err = sql.Open("mysql", "debian-sys-maint:XMQWnyGB6Or12Oxk@tcp(localhost:3306)/vote")
@@ -125,6 +128,9 @@ func main() {
 	http.HandleFunc("/createCandidate", withAuth(adminOnly(errorHandler(createCandidateHandler))))
 	http.HandleFunc("/deleteCandidate", withAuth(adminOnly(errorHandler(deleteCandidateHandler))))
 	http.HandleFunc("/listCandidates", errorHandler(listCandidatesHandler))
+	http.HandleFunc("listCandidatesVoteStatus", errorHandler(withAuth(listCandidatesVoteStatusHandle)))
+	http.HandleFunc("vote", errorHandler(withAuth(VoteHandle)))
+	http.HandleFunc("getVoteResult", errorHandler(withAuth(getVoteResultHandle)))
 	fmt.Println("服务开启成功：地址为", "http://localhost:8080")
 	http.ListenAndServe(":8080", nil)
 }
@@ -517,4 +523,224 @@ func RsaDecrypt(ciphertext, keyBytes []byte) []byte {
 		panic(err)
 	}
 	return data
+}
+
+func listCandidatesVoteStatusHandle(w http.ResponseWriter, r *http.Request) {
+	allowCORS(w)
+
+	fmt.Println("listCandidatesVoteStatusHandle")
+
+	currentUser, err := checkLogin(r)
+	if err != nil {
+		panic(err)
+	}
+
+	// 查询所有候选人
+	rows, err := db.Query("SELECT id, username FROM candidates WHERE valid=true")
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	voted := checkVoted(currentUser)
+
+	type Candidate struct {
+		id       int
+		username string
+		voted    bool
+	}
+
+	var candidates []Candidate
+
+	for rows.Next() {
+		var candidate Candidate
+		err := rows.Scan(&candidate.id, &candidate.username)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Println("candidate", candidate.id, candidate.username)
+
+		candidate.voted = voted
+
+		candidates = append(candidates, candidate)
+	}
+
+	json.NewEncoder(w).Encode(ApiResponse{
+		Code: 200,
+		Data: candidates,
+	})
+}func getVoteResultHandle(w http.ResponseWriter, r *http.Request) {
+	allowCORS(w)
+
+	fmt.Println("getVoteResultHandle")
+
+	// 查询所有候选人
+	rows, err := db.Query("SELECT id, username,publicKey FROM candidates WHERE valid=true")
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+
+	type CandidateResult struct {
+		id       int
+		username string
+		count    int
+	}
+
+	var candidates []CandidateResult
+
+	for rows.Next() {
+		var candidate CandidateResult
+		var publicKey string
+		err := rows.Scan(&candidate.id, &candidate.username, &publicKey)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Println("candidate", candidate.id, candidate.username)
+
+		var value string = ""
+		value, err = serviceSetup.GetInfo(publicKey)
+		if err != nil {
+			panic(err)
+		}
+
+		count  := len(strings.Split(value, ","))
+		candidate.count = count
+
+		candidates = append(candidates, candidate)
+	}
+
+	json.NewEncoder(w).Encode(ApiResponse{
+		Code: 200,
+		Data: candidates,
+	})
+}
+
+func checkVoted(username string) bool {
+	// 查询用户的 hash 值
+	var hashValue string
+	err := db.QueryRow("SELECT hash FROM users WHERE username = ?", username).Scan(&hashValue)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("username:", username, "hash", hashValue)
+
+	// 查询所有候选人
+	rows, err := db.Query("SELECT id, username,publicKey FROM candidates WHERE valid=true")
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	type Candidate struct {
+		id        int
+		username  string
+		publicKey string
+	}
+
+	// 遍历候选人并检查是否包含 hash 值
+	for rows.Next() {
+		var candidate Candidate
+		err := rows.Scan(&candidate.id, &candidate.username, &candidate.publicKey)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Println("candidate:", candidate.username, candidate.publicKey)
+		// 使用候选人的 publicKey 查询 getInfo 的值，并判断是否包含 hash 值
+		var value string
+		value, err = serviceSetup.GetInfo(candidate.publicKey)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Println("candiate chain values ", value)
+
+		if value != "" && strings.Contains(value, hashValue) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func VoteHandle(w http.ResponseWriter, r *http.Request) {
+	type RegisterRequest struct {
+		username string `json:"username"`
+	}
+	var request RegisterRequest
+
+	// Decode the request body into the struct
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		panic(err)
+	}
+
+	candidateUserName := request.username
+
+	// 查询publicKey
+	var publicKey string = ""
+	err = db.QueryRow("SELECT publicKey FROM candidates WHERE username = ?", candidateUserName).Scan(&publicKey)
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("candidate:", candidateUserName, "publicKey:", publicKey)
+
+	// 获取当前用户名
+	currentUser, err := checkLogin(r)
+	if err != nil {
+		panic(err)
+	}
+
+	// 查询用户的 hash 值
+	var hashValue string
+	err = db.QueryRow("SELECT hash FROM users WHERE username = ?", currentUser).Scan(&hashValue)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("username:", currentUser, "hash", hashValue)
+
+	//检查该用户是否已投票过
+	voted := checkVoted(currentUser)
+	if voted {
+		json.NewEncoder(w).Encode(ApiResponse{
+			Code:      400,
+			ErrorMsg:  "该用户已投过票",
+			ErrorCode: "UserVoted",
+		})
+		return
+		//panic(errors.New("该用户已投过票"))
+	}
+
+	fmt.Println(currentUser, "尝试给投票给", candidateUserName)
+
+	value, err := serviceSetup.GetInfo(publicKey)
+
+	if err != nil {
+		panic(err)
+	}
+	if value != "" {
+		value += "," + hashValue
+	} else {
+		value = hashValue
+	}
+
+	fmt.Println(candidateUserName, "最新的投票人都有", value)
+
+	_, err = serviceSetup.SetInfo(publicKey, value)
+	if err != nil {
+		panic(err)
+	}
+
+	json.NewEncoder(w).Encode(ApiResponse{
+		Code: 200,
+		Data: "User vote successfully.",
+	})
 }

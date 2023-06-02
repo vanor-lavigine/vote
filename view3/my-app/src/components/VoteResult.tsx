@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { observer } from "mobx-react-lite";
-import { getVoteList } from "../services/api";
+import { getVoteResult} from "../services/api";
 import { Table } from "@arco-design/web-react";
 
 interface VoteItemResult {
-  Id: number;
-  Username: string;
-  Votes: number;
+  id: number;
+  username: string;
+  count: number;
 }
 
 const VoteResult: React.FC = observer(() => {
@@ -17,25 +17,25 @@ const VoteResult: React.FC = observer(() => {
   }, []);
 
   const fetchVoteList = async () => {
-    const list = await getVoteList();
-    setVoteList(list?.data || []);
+    const list:any = await getVoteResult();
+    setVoteList(list || []);
   };
 
   const columns = [
     {
-      title: "ID",
+      title: "id",
       dataIndex: "Id",
-      key: "Id",
+      key: "id",
     },
     {
       title: "用户名",
-      dataIndex: "Username",
-      key: "Username",
+      dataIndex: "username",
+      key: "username",
     },
     {
       title: "票数",
-      dataIndex: "Count",
-      key: "Count",
+      dataIndex: "count",
+      key: "count",
     },
   ];
 
