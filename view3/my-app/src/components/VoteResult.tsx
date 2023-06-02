@@ -24,7 +24,7 @@ const VoteResult: React.FC = observer(() => {
   const columns = [
     {
       title: "id",
-      dataIndex: "Id",
+      dataIndex: "id",
       key: "id",
     },
     {

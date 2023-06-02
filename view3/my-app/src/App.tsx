@@ -19,7 +19,7 @@ import Vote from "./components/Vote";
 const routesName: any = {
   register: "注册",
   login: "登录",
-  vote: "投票",
+  "vote-candidate": "投票",
   candidates: "候选人列表",
   "vote-result": "投票结果",
 };
@@ -101,7 +101,7 @@ const App: React.FC = observer(() => {
                       marginBottom: "8px",
                     }}
                   >
-                    <NavLink to="/vote">投票</NavLink>
+                    <NavLink to="/vote-candidate">投票</NavLink>
                   </Button>
                   <Button
                     type="primary"
@@ -167,7 +167,7 @@ const App: React.FC = observer(() => {
         <Route path="/vote-result">
           {UserStore.isLoggedIn ? <VoteResult /> : <Redirect to="/" />}
         </Route>
-        <Route path="/vote">
+        <Route path="/vote-candidate">
           {UserStore.isLoggedIn ? <Vote /> : <Redirect to="/" />}
         </Route>
       </div>

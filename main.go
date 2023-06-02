@@ -359,7 +359,8 @@ func createCandidateHandler(w http.ResponseWriter, r *http.Request) {
 
 	username := request.Username
 
-	privateKey, publicKey := GenRsaKey()
+	privateKey := generateSessionID()
+	publicKey := generateSessionID()
 
 	//fmt.Println(string(privateKey))
 	//fmt.Println(string(publicKey))
@@ -380,7 +381,7 @@ func createCandidateHandler(w http.ResponseWriter, r *http.Request) {
 func deleteCandidateHandler(w http.ResponseWriter, r *http.Request) {
 	allowCORS(w)
 	type RegisterRequest struct {
-		Username string `json:"username"`
+		Id int `json:"id"`
 	}
 	var request RegisterRequest
 
@@ -390,9 +391,9 @@ func deleteCandidateHandler(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	username := request.Username
+	candidateId := request.Id
 
-	_, err = db.Exec("UPDATE candidates SET valid = false WHERE username = ?", username)
+	_, err = db.Exec("UPDATE candidates SET valid = 0 WHERE id = ?", candidateId)
 	if err != nil {
 		panic(err)
 	}
@@ -588,9 +589,9 @@ func getVoteResultHandle(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type CandidateResult struct {
-		id       int
-		username string
-		count    int
+		Id       int    `json:"id"`
+		Username string `json:"username"`
+		Count    int    `json:"count"`
 	}
 
 	var candidates []CandidateResult
@@ -598,21 +599,27 @@ func getVoteResultHandle(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var candidate CandidateResult
 		var publicKey string
-		err := rows.Scan(&candidate.id, &candidate.username, &publicKey)
+		err := rows.Scan(&candidate.Id, &candidate.Username, &publicKey)
 		if err != nil {
 			panic(err)
 		}
 
-		fmt.Println("candidate", candidate.id, candidate.username)
+		fmt.Println("candidate", candidate.Id, candidate.Username)
 
 		var value string = ""
+		var count int = 0
 		value, err = serviceSetup.GetInfo(publicKey)
 		//if err != nil {
 		//	panic(err)
 		//}
 
-		count := len(strings.Split(value, ","))
-		candidate.count = count
+		if value == "" {
+			count = 0
+		} else {
+			count = len(strings.Split(value, ","))
+		}
+
+		candidate.Count = count
 
 		candidates = append(candidates, candidate)
 	}
@@ -674,7 +681,7 @@ func checkVoted(username string) bool {
 
 func VoteHandle(w http.ResponseWriter, r *http.Request) {
 	type RegisterRequest struct {
-		username string `json:"username"`
+		Username string `json:"username"`
 	}
 	var request RegisterRequest
 
@@ -684,13 +691,14 @@ func VoteHandle(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	candidateUserName := request.username
-
+	candidateUserName := request.Username
+	fmt.Println("candidateUserName", candidateUserName)
 	// 查询publicKey
 	var publicKey string = ""
 	err = db.QueryRow("SELECT publicKey FROM candidates WHERE username = ?", candidateUserName).Scan(&publicKey)
 
 	if err != nil {
+		fmt.Println("queryerror", err)
 		panic(err)
 	}
 

@@ -5,9 +5,9 @@ import {listCandidates, listCandidatesVoteStatus, vote} from "../services/api";
 import { Table, Button, Message } from "@arco-design/web-react";
 
 interface Candidate {
-  id: number;
-  username: string;
-  voted: boolean;
+  Id: number;
+  Username: string;
+  Voted: boolean;
 }
 
 const Vote: React.FC = observer(() => {
@@ -24,7 +24,7 @@ const Vote: React.FC = observer(() => {
     console.log("候选人列表", list);
 
     // 找到一个投过票的，说明已投过，只能投一次
-    const _hasVoted = !!list?.find((c:any) => c.voted);
+    const _hasVoted = !!list?.find((c:any) => c.Voted);
     if (_hasVoted) {
       Message.info("您已投过票，无法再投");
     }
@@ -32,16 +32,16 @@ const Vote: React.FC = observer(() => {
     setCandidates(list);
   };
 
-  const handleVote = async (username: string) => {
-    try {
-      await vote(username);
-      Message.info("投票成功");
-      fetchCandidates();
-    } catch (e) {
-      console.error('投票失败', e);
-      Message.info("投票失败");
-    }
-    // 投票
+  const handleVote =  (username: string) => {
+    console.log('aaaa vote', username)
+   vote(username).then(()=>{
+     Message.info("投票成功");
+     fetchCandidates();
+   }, (e:any) =>{
+     console.error('投票失败');
+     Message.info("投票失败");
+   })
+
     console.log("投票", username);
   };
 
@@ -49,30 +49,37 @@ const Vote: React.FC = observer(() => {
     {
       title: "ID",
       dataIndex: "Id",
-      key: "id",
+      key: "Id",
     },
     {
       title: "用户名",
-      dataIndex: "username",
-      key: "username",
+      dataIndex: "Username",
+      key: "Username",
     },
     {
       title: "投票",
       key: "action",
-      render: (record: Candidate) => (
+      render: (_:any, record:Candidate) => {
+
+        const handleClick = (e:any) => {
+          console.log('click vote', e,record);
+          handleVote(record.Username)
+        }
+        return <div onClick={handleClick}>
           <Button
               disabled={voted}
-              onClick={() => handleVote(record.username)}
+              type="primary"
           >
             投票
           </Button>
-      ),
+        </div>
+      },
     },
   ];
 
   return (
     <div>
-      <Table columns={columns} data={candidates} rowKey="id" />
+      <Table columns={columns} data={candidates} rowKey="Id" />
     </div>
   );
 });
